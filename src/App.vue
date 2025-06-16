@@ -1,213 +1,400 @@
 <template>
-  <drag-select v-model="selection" class="drag-select">
+  <!-- 模式切換 -->
+  <div class="mode-switch">
+    <button :class="{ active: mode==='station' }" @click="mode='station'">
+      站點設定
+    </button>
+    <button :class="{ active: mode==='line' }" @click="mode='line'">
+      產線設定
+    </button>
+  </div>
+
+  <!-- 1. 站點設定 -->
+  <div v-if="mode==='station'" class="assign-container">
     <div class="lists-container">
-      <!-- 列表 A -->
-      <div ref="parentA" class="list-box">
-        <drag-select-option
-          v-for="(item, index) in listA"
-          :key="item.id"
-          :value="item.id"
-          class="item-wrapper"
-        >
-          <div :index="index" class="item-card" :class="{ 'selected': selection.includes(item.id) }">
-            {{ item.name }}
-          </div>
-        </drag-select-option>
+      <div class="station-box">
+        <h4>Station A</h4>
+        <ul ref="parentA" class="list-box">
+          <li
+            v-for="(it,i) in listA"
+            :key="it.id"
+            :index="i"
+            class="item-card"
+            :style="itemStyle(it)"
+          >
+            {{ it.name }}
+          </li>
+        </ul>
       </div>
-      <!-- 列表 B -->
-      <div ref="parentB" class="list-box">
-        <drag-select-option
-          v-for="(item, index) in listB"
-          :key="item.id"
-          :value="item.id"
-          class="item-wrapper"
-        >
-          <div :index="index" class="item-card" :class="{ 'selected': selection.includes(item.id) }">
-            {{ item.name }}
-          </div>
-        </drag-select-option>
+      <div class="station-box">
+        <h4>Station B</h4>
+        <ul ref="parentB" class="list-box">
+          <li
+            v-for="(it,i) in listB"
+            :key="it.id"
+            :index="i"
+            class="item-card"
+            :style="itemStyle(it)"
+          >
+            {{ it.name }}
+          </li>
+        </ul>
       </div>
-      <!-- 列表 C -->
-      <div ref="parentC" class="list-box">
-        <drag-select-option
-          v-for="(item, index) in listC"
-          :key="item.id"
-          :value="item.id"
-          class="item-wrapper"
-        >
-          <div :index="index" class="item-card" :class="{ 'selected': selection.includes(item.id) }">
-            {{ item.name }}
-          </div>
-        </drag-select-option>
+      <div class="station-box">
+        <h4>Station C</h4>
+        <ul ref="parentC" class="list-box">
+          <li
+            v-for="(it,i) in listC"
+            :key="it.id"
+            :index="i"
+            class="item-card"
+            :style="itemStyle(it)"
+          >
+            {{ it.name }}
+          </li>
+        </ul>
+      </div>
+      <div class="station-box">
+        <h4>設備池</h4>
+        <ul ref="parentPool" class="list-box">
+          <li
+            v-for="(it,i) in devicePool"
+            :key="it.id"
+            :index="i"
+            class="item-card"
+            :style="itemStyle(it)"
+          >
+            {{ it.name }}
+          </li>
+        </ul>
       </div>
     </div>
-  </drag-select>
+  </div>
 
-  <!-- 只有当已选项不为空时，显示「处理选中」按钮 -->
-  <button
-    v-if="selection.length > 0 && !showModal"
-    class="process-button"
-    @click="openModal"
-  >
-    处理已选 ({{ selection.length }} 项)
-  </button>
+  <!-- 2. 產線設定 -->
+  <div v-else class="line-container">
+    <!-- 新增產線區 -->
+    <div class="line-setup">
+      <input
+        v-model="newLineName"
+        type="text"
+        placeholder="輸入產線名稱"
+      />
+      <input
+        v-model="newLineColor"
+        type="color"
+        title="選擇產線顏色"
+      />
+      <button
+        @click="addLine"
+        :disabled="!newLineName.trim()"
+      >＋ 新增產線</button>
+    </div>
 
-  <!-- 弹窗 -->
-  <div v-if="showModal" class="modal-overlay" @click.self="onCancel">
-    <div class="modal-content">
-      <h3>输入文字</h3>
-      <p>已选 {{ selection.length }} 项，ID：{{ selection.join(', ') }}</p>
-      <textarea v-model="inputText" rows="4" class="modal-textarea" placeholder="请输入..."></textarea>
-      <div class="modal-buttons">
-        <button @click="onConfirm">确认</button>
-        <button @click="onCancel">取消</button>
+    <!-- 產線選擇 Chips -->
+    <div class="line-badges">
+      <span
+        v-for="ln in productionLines"
+        :key="ln.id"
+        class="line-badge"
+        :style="{ backgroundColor: ln.color, opacity: activeLineId===ln.id ? 1 : 0.6 }"
+        @click="activeLineId = ln.id"
+      >
+        {{ ln.name }}
+      </span>
+    </div>
+
+    <!-- 框選區 -->
+    <h4>框選下方設備後，點「指派至 {{ currentLine?.name || '—' }}」</h4>
+    <drag-select
+      v-model="selection"
+      drag-area-class="all-assign-area"
+      :draggable-on-option="false"
+      class="drag-select"
+    >
+      <div class="assign-container all-assign-area">
+        <div class="lists-container">
+          <div class="station-box">
+            <h4>Station A</h4>
+            <ul class="list-box">
+              <drag-select-option
+                v-for="(it,i) in listA"
+                :key="it.id"
+                :value="it.id"
+              >
+                <li
+                  :index="i"
+                  class="item-card"
+                  :style="itemStyle(it)"
+                  :class="{ selected: selection.includes(it.id) }"
+                >
+                  {{ it.name }}
+                </li>
+              </drag-select-option>
+            </ul>
+          </div>
+          <div class="station-box">
+            <h4>Station B</h4>
+            <ul class="list-box">
+              <drag-select-option
+                v-for="(it,i) in listB"
+                :key="it.id"
+                :value="it.id"
+              >
+                <li
+                  :index="i"
+                  class="item-card"
+                  :style="itemStyle(it)"
+                  :class="{ selected: selection.includes(it.id) }"
+                >
+                  {{ it.name }}
+                </li>
+              </drag-select-option>
+            </ul>
+          </div>
+          <div class="station-box">
+            <h4>Station C</h4>
+            <ul class="list-box">
+              <drag-select-option
+                v-for="(it,i) in listC"
+                :key="it.id"
+                :value="it.id"
+              >
+                <li
+                  :index="i"
+                  class="item-card"
+                  :style="itemStyle(it)"
+                  :class="{ selected: selection.includes(it.id) }"
+                >
+                  {{ it.name }}
+                </li>
+              </drag-select-option>
+            </ul>
+          </div>
+          <div class="station-box">
+            <h4>設備池</h4>
+            <ul class="list-box">
+              <drag-select-option
+                v-for="(it,i) in devicePool"
+                :key="it.id"
+                :value="it.id"
+              >
+                <li
+                  :index="i"
+                  class="item-card"
+                  :style="itemStyle(it)"
+                  :class="{ selected: selection.includes(it.id) }"
+                >
+                  {{ it.name }}
+                </li>
+              </drag-select-option>
+            </ul>
+          </div>
+        </div>
       </div>
+    </drag-select>
+
+    <!-- 確認指派按鈕 -->
+    <div class="line-assign-controls">
+      <button
+        :disabled="!selection.length || !currentLine"
+        @click="assignLines"
+      >
+        指派 {{ selection.length }} 項到「{{ currentLine?.name }}」
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useDragAndDrop } from 'fluid-dnd/vue'
 
-interface Item { id: number; name: string }
+interface Item { id: number; name: string; lineId?: number }
+interface Line { id: number; name: string; color: string }
 
-// 示例数据生成
-function generateItems(prefix: string, count: number, startId: number): Item[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: startId + i,
-    name: `${prefix}-${startId + i}`,
-  }))
+// 產生假資料
+function genDevices(): Item[] {
+  return Array.from({ length: 8 }, (_, i) => ({ id: i+1, name: `設備-${i+1}` }))
 }
 
-const listA = ref<Item[]>(generateItems('A', 9, 1))
-const listB = ref<Item[]>(generateItems('B', 9, 101))
-const listC = ref<Item[]>(generateItems('C', 9, 201))
+const devicePool = ref<Item[]>([])
+const listA = ref<Item[]>([])
+const listB = ref<Item[]>([])
+const listC = ref<Item[]>([])
 
-// fluid-dnd 初始化
-const [parentA] = useDragAndDrop(listA, {
-  droppableGroup: 'group',
-  draggingClass: 'dragging-item',
-})
-const [parentB] = useDragAndDrop(listB, {
-  droppableGroup: 'group',
-  draggingClass: 'dragging-item',
-})
-const [parentC] = useDragAndDrop(listC, {
-  droppableGroup: 'group',
-  draggingClass: 'dragging-item',
-})
+// Fluid-DnD：池與三站共用 droppableGroup
+const [ parentPool ] = useDragAndDrop(devicePool, { droppableGroup: 'stations', draggingClass: 'dragging-item' })
+const [ parentA    ] = useDragAndDrop(listA,      { droppableGroup: 'stations', draggingClass: 'dragging-item' })
+const [ parentB    ] = useDragAndDrop(listB,      { droppableGroup: 'stations', draggingClass: 'dragging-item' })
+const [ parentC    ] = useDragAndDrop(listC,      { droppableGroup: 'stations', draggingClass: 'dragging-item' })
 
-// 选中 ID 列表
+// 模式
+const mode = ref<'station'|'line'>('station')
+
+// 產線設定
+const productionLines = ref<Line[]>([])
+const newLineName = ref('')
+const newLineColor = ref('#28a745')
+const activeLineId = ref<number|null>(null)
+
+// 目前產線物件
+const currentLine = computed(() => 
+  productionLines.value.find(l => l.id === activeLineId.value!) || null
+)
+
+// 新增產線
+function addLine() {
+  const name = newLineName.value.trim()
+  if (!name) return
+  const id = Date.now()
+  productionLines.value.push({ id, name, color: newLineColor.value })
+  activeLineId.value = id
+  newLineName.value = ''
+}
+
+// 框選結果
 const selection = ref<number[]>([])
-// 控制弹窗显示
-const showModal = ref(false)
-const inputText = ref('')
 
-// 点击「处理选中」按钮打开弹窗
-function openModal() {
-  showModal.value = true
-  inputText.value = ''
-}
-
-// 确认后处理并关闭弹窗、清空选择
-function onConfirm() {
-  console.log('选中 IDs:', selection.value, '输入文本:', inputText.value)
-  // 示例：给对应 item 添加 note
-  selection.value.forEach(id => {
-    let found = listA.value.find(i => i.id === id)
-    if (found) (found as any).note = inputText.value
-    else {
-      found = listB.value.find(i => i.id === id)
-      if (found) (found as any).note = inputText.value
-      else {
-        found = listC.value.find(i => i.id === id)
-        if (found) (found as any).note = inputText.value
-      }
-    }
-  })
-  // 关闭弹窗并清空选择
-  showModal.value = false
+// 指派產線
+function assignLines() {
+  const lineId = activeLineId.value!
+  const all = [...listA.value, ...listB.value, ...listC.value, ...devicePool.value]
+  all.filter(it => selection.value.includes(it.id))
+     .forEach(it => it.lineId = lineId)
   selection.value = []
 }
 
-// 取消时关闭弹窗，可保留或清空选择；这里也清空选择
-function onCancel() {
-  showModal.value = false
-  selection.value = []
+// 卡片樣式
+function itemStyle(it: Item) {
+  const ln = productionLines.value.find(l => l.id === it.lineId)
+  return ln ? { backgroundColor: ln.color, color: '#fff' } : {}
 }
+
+// 初始化
+onMounted(() => {
+  devicePool.value = genDevices()
+  listA.value = []
+  listB.value = []
+  listC.value = []
+})
 </script>
 
 <style scoped>
-.lists-container {
+.mode-switch {
+  margin-bottom: 1rem;
+}
+.mode-switch button {
+  margin-right: .5rem;
+  padding: .5rem 1rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+}
+.mode-switch button.active {
+  background: #007bff;
+  color: #fff;
+  border-color: #007bff;
+}
+
+.assign-container .lists-container,
+.all-assign-area .lists-container {
   display: flex;
   gap: 1rem;
-  align-items: flex-start;
 }
+
+.station-box {
+  text-align: center;
+}
+.station-box h4 {
+  margin: 0 0 .5rem;
+}
+
 .list-box {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
   background: #f3f3f3;
   border: 1px solid #ccc;
   border-radius: 6px;
   width: 200px;
-  max-height: 400px;
+  max-height: 300px;
   overflow-y: auto;
-  padding: 8px;
 }
+
 .item-card {
+  margin-bottom: 6px;
+  padding: 8px;
   background: #fff;
   border: 1px solid #999;
   border-radius: 4px;
-  margin-bottom: 8px;
-  padding: 8px;
   cursor: grab;
   user-select: none;
 }
 .item-card.selected {
-  border-color: #007bff;
-  background: #e0f0ff;
+  outline: 2px dashed #007bff;
 }
-/* 拖拽中样式 */
 .dragging-item {
-  opacity: 0.5;
+  opacity: .5;
   transform: scale(1.03);
 }
 
-/* 处理按钮 */
-.process-button {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  background: #007bff;
-  color: white;
+.line-setup {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  margin-bottom: .5rem;
+}
+.line-setup input[type="text"] {
+  padding: .4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.line-setup input[type="color"] {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: none;
+}
+.line-setup button {
+  padding: .4rem .8rem;
+  background: #28a745;
+  color: #fff;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000;
+.line-badges {
+  margin-bottom: 1rem;
 }
-.modal-content {
-  background: #fff; padding: 1.5rem; border-radius: 8px;
-  width: 90%; max-width: 400px;
+.line-badge {
+  display: inline-block;
+  padding: .3rem .6rem;
+  margin-right: .4rem;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
 }
-.modal-textarea {
-  width: 100%; margin: 0.5rem 0; resize: vertical;
+
+.line-assign-controls {
+  margin-top: 1rem;
 }
-.modal-buttons {
-  display: flex; justify-content: flex-end; gap: 0.5rem;
+.line-assign-controls button {
+  padding: .6rem 1.2rem;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
-.modal-buttons button {
-  padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;
+.line-assign-controls button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
-.modal-buttons button:first-child {
-  background: #007bff; color: white;
-}
-.modal-buttons button:last-child {
-  background: #ccc;
+
+.drag-select {
+  border: 1px dashed rgba(0,123,255,.5);
+  border-radius: 4px;
 }
 </style>
